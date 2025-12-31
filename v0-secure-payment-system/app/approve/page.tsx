@@ -1,0 +1,155 @@
+"use client"
+
+import { Navbar } from "@/components/navbar"
+import { AuthGuard } from "@/components/auth-guard"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import { ShieldCheck, User, X, Check, Fingerprint, Lock } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { useState } from "react"
+import { usePaymentStore } from "@/lib/payment-store"
+
+export default function ApprovePage() {
+  const router = useRouter()
+  const { currentRequest, setCurrentRequest } = usePaymentStore()
+  const [isApproving, setIsApproving] = useState(false)
+  const [showBiometric, setShowBiometric] = useState(false)
+
+  const handleApprove = () => {
+    setShowBiometric(true)
+  }
+
+  const handleBiometricSuccess = () => {
+    setIsApproving(true)
+    setTimeout(() => {
+      router.push("/status?success=true")
+    }, 2000)
+  }
+
+  if (!currentRequest) {
+    return (
+      <AuthGuard>
+        <div className="min-h-screen bg-background">
+          <Navbar />
+          <div className="flex flex-col items-center justify-center p-8 text-center space-y-4">
+            <div className="w-20 h-20 bg-muted rounded-full flex items-center justify-center">
+              <ShieldCheck className="w-10 h-10 text-muted-foreground" />
+            </div>
+            <h2 className="text-2xl font-bold text-white">No Pending Requests</h2>
+            <Button onClick={() => router.push("/dashboard")}>Go to Dashboard</Button>
+          </div>
+        </div>
+      </AuthGuard>
+    )
+  }
+
+  return (
+    <AuthGuard>
+      <div className="min-h-screen bg-background text-foreground relative overflow-hidden">
+        <Navbar />
+
+        <main className="mx-auto max-w-xl px-4 py-8 space-y-8 relative z-10">
+          <div className="space-y-2 text-center">
+            <h1 className="text-3xl font-bold text-white tracking-tight">Payment Approval</h1>
+            <p className="text-muted-foreground">Review and authorize the incoming request</p>
+          </div>
+
+          <Card className="glass-strong border-primary/30 overflow-hidden shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <CardContent className="p-0">
+              <div className="bg-primary/10 p-8 flex flex-col items-center border-b border-white/10">
+                <div className="w-24 h-24 bg-white/5 rounded-3xl flex items-center justify-center mb-6 border border-white/10 shadow-2xl relative">
+                  <User className="w-12 h-12 text-primary" />
+                  <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-success rounded-full flex items-center justify-center border-4 border-background">
+                    <Check className="w-4 h-4 text-white font-bold" />
+                  </div>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-1">
+                    Request from Merchant
+                  </p>
+                  <h2 className="text-2xl font-bold text-white">Receiver Simulation</h2>
+                </div>
+              </div>
+
+              <div className="p-8 space-y-8">
+                <div className="text-center space-y-1">
+                  <p className="text-sm font-medium text-muted-foreground uppercase tracking-widest">
+                    Amount Requested
+                  </p>
+                  <p className="text-5xl font-black text-white">₹{currentRequest.amount.toLocaleString()}</p>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-4 glass border-white/5 rounded-2xl">
+                    <span className="text-sm text-muted-foreground">Transaction Code</span>
+                    <span className="font-mono font-bold text-primary tracking-widest">{currentRequest.code}</span>
+                  </div>
+                  <div className="flex items-center justify-between p-4 glass border-white/5 rounded-2xl">
+                    <span className="text-sm text-muted-foreground">Reference</span>
+                    <span className="text-sm text-white italic">"{currentRequest.note || "General Payment"}"</span>
+                  </div>
+                </div>
+
+                {!showBiometric ? (
+                  <div className="grid grid-cols-2 gap-4">
+                    <Button
+                      variant="outline"
+                      className="h-16 rounded-2xl border-white/10 bg-white/5 hover:bg-destructive/10 hover:border-destructive/30 text-white font-bold transition-all flex items-center gap-2"
+                      onClick={() => {
+                        setCurrentRequest(null)
+                        router.push("/status?success=false")
+                      }}
+                    >
+                      <X className="w-5 h-5" />
+                      Reject
+                    </Button>
+                    <Button
+                      className="h-16 rounded-2xl bg-primary hover:bg-primary/90 text-white font-bold shadow-xl shadow-primary/20 transition-all flex items-center gap-2"
+                      onClick={handleApprove}
+                    >
+                      <Check className="w-5 h-5" />
+                      Approve
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
+                    <div className="flex flex-col items-center justify-center p-8 bg-white/5 rounded-3xl border border-white/10 space-y-4">
+                      <div
+                        className="w-20 h-20 bg-primary/20 rounded-full flex items-center justify-center group relative cursor-pointer"
+                        onClick={handleBiometricSuccess}
+                      >
+                        <Fingerprint
+                          className={`w-12 h-12 text-primary ${isApproving ? "animate-pulse" : "group-hover:scale-110 transition-transform"}`}
+                        />
+                        {isApproving && (
+                          <div className="absolute inset-0 rounded-full border-4 border-primary border-t-transparent animate-spin" />
+                        )}
+                      </div>
+                      <div className="text-center">
+                        <p className="text-lg font-bold text-white">Verify Identity</p>
+                        <p className="text-sm text-muted-foreground">Touch the sensor to authorize payment</p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      className="w-full text-muted-foreground"
+                      onClick={() => setShowBiometric(false)}
+                      disabled={isApproving}
+                    >
+                      Use PIN Instead
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="flex items-center gap-2 justify-center text-muted-foreground/40 text-xs">
+            <Lock className="w-3 h-3" />
+            <span>Encrypted with 256-bit Secure Authorization</span>
+          </div>
+        </main>
+      </div>
+    </AuthGuard>
+  )
+}

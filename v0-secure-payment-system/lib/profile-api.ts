@@ -41,6 +41,6 @@ export async function getProfileByEmail(email: string) {
   try {
     return JSON.parse(text) as ProfilePayload
   } catch {
-    return null
+    throw new Error("Invalid JSON response from profile API")
   }
 }

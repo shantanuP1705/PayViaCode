@@ -9,37 +9,36 @@ import { Label } from "@/components/ui/label"
 import { ArrowLeft, Key, Search, User, ShieldCheck, ArrowRight } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState, Suspense } from "react" // Added Suspense
-import { usePaymentStore } from "@/lib/payment-store"
+import { getPaymentRequestByCode, type PaymentRequestDetails } from "@/lib/payments-api"
 
 function PayByCodeContent() {
   const router = useRouter()
-  const { currentRequest } = usePaymentStore()
   const [code, setCode] = useState("")
   const [isVerifying, setIsVerifying] = useState(false)
   const [error, setError] = useState("")
-  const [verifiedRequest, setVerifiedRequest] = useState<any>(null)
+  const [verifiedRequest, setVerifiedRequest] = useState<PaymentRequestDetails | null>(null)
 
-  const handleVerify = () => {
-    if (code.length < 6) return
+  const handleVerify = async () => {
+    const clean = code.replace(/[^A-Z0-9]/g, "").toUpperCase()
+    if (clean.length !== 8) return
     setIsVerifying(true)
     setError("")
-
-    // Simulation: check against store or dummy data
-    setTimeout(() => {
-      if (currentRequest && code.toUpperCase() === currentRequest.code) {
-        setVerifiedRequest(currentRequest)
-      } else if (code.toUpperCase() === "DEMO12") {
-        setVerifiedRequest({
-          amount: 2500,
-          payerName: "Jane Smith",
-          note: "Demo Payment",
-          status: "active",
-        })
-      } else {
+    try {
+      const req = await getPaymentRequestByCode(clean)
+      // Expiry check client-side (server already stores expiresAt)
+      const expired = req.expiresAt ? new Date(req.expiresAt).getTime() < Date.now() : false
+      if (expired || (req.status && req.status !== "CREATED")) {
         setError("Invalid or expired payment code.")
+        setVerifiedRequest(null)
+      } else {
+        setVerifiedRequest(req)
       }
+    } catch (e) {
+      setError("Invalid or expired payment code.")
+      setVerifiedRequest(null)
+    } finally {
       setIsVerifying(false)
-    }, 1500)
+    }
   }
 
   return (
@@ -63,10 +62,10 @@ function PayByCodeContent() {
                   <Key className="absolute left-4 top-1/2 -translate-y-1/2 w-6 h-6 text-primary" />
                   <Input
                     id="code"
-                    placeholder="ABC-123"
+                    placeholder="ABCDEFGH"
                     value={code}
                     onChange={(e) => setCode(e.target.value.toUpperCase())}
-                    maxLength={6}
+                    maxLength={8}
                     className="pl-14 text-4xl h-20 font-black tracking-[0.2em] glass border-white/10 focus:border-primary/50 transition-all text-white bg-transparent uppercase"
                   />
                 </div>
@@ -77,7 +76,7 @@ function PayByCodeContent() {
             <Button
               className="w-full h-14 text-lg font-bold bg-primary hover:bg-primary/90 text-white rounded-2xl flex items-center justify-center gap-3 transition-transform active:scale-95 shadow-xl shadow-primary/20"
               onClick={handleVerify}
-              disabled={code.length < 6 || isVerifying}
+              disabled={code.replace(/[^A-Z0-9]/g, "").length !== 8 || isVerifying}
             >
               {isVerifying ? (
                 <div className="h-6 w-6 animate-spin rounded-full border-3 border-white/30 border-t-white" />
@@ -90,7 +89,7 @@ function PayByCodeContent() {
             </Button>
 
             <div className="text-center">
-              <p className="text-xs text-muted-foreground/40">Ask the payer for their unique 6-character code.</p>
+              <p className="text-xs text-muted-foreground/40">Ask the payer for their unique 8-character code.</p>
             </div>
           </CardContent>
         </Card>
@@ -117,7 +116,7 @@ function PayByCodeContent() {
                     <div>
                       <p className="text-xs text-muted-foreground uppercase tracking-widest">Payer</p>
                       <p className="font-bold text-white">
-                        {verifiedRequest.payerName || "John D***"} (Masked for Security)
+                        {verifiedRequest.payerEmail ? `${verifiedRequest.payerEmail.split("@")[0].slice(0,3)}***@***` : "User***@***"}
                       </p>
                     </div>
                   </div>
@@ -126,7 +125,7 @@ function PayByCodeContent() {
                 <div className="flex items-center justify-between p-6 bg-white/5 rounded-2xl border border-white/5">
                   <div>
                     <p className="text-xs text-muted-foreground uppercase tracking-widest">Amount to Receive</p>
-                    <p className="text-4xl font-black text-white">₹{verifiedRequest.amount.toLocaleString()}</p>
+                    <p className="text-4xl font-black text-white">₹{Number(verifiedRequest.amount).toLocaleString()}</p>
                   </div>
                   <div className="text-right">
                     <p className="text-xs text-muted-foreground uppercase tracking-widest">Note</p>

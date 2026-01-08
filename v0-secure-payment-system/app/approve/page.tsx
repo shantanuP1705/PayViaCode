@@ -5,15 +5,37 @@ import { AuthGuard } from "@/components/auth-guard"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { ShieldCheck, User, X, Check, Fingerprint, Lock } from "lucide-react"
-import { useRouter } from "next/navigation"
-import { useState } from "react"
-import { usePaymentStore } from "@/lib/payment-store"
+import { useRouter, useSearchParams } from "next/navigation"
+import { useEffect, useState } from "react"
+import { getPaymentRequestByCode, type PaymentRequestDetails } from "@/lib/payments-api"
 
 export default function ApprovePage() {
   const router = useRouter()
-  const { currentRequest, setCurrentRequest } = usePaymentStore()
+  const params = useSearchParams()
+  const [request, setRequest] = useState<PaymentRequestDetails | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [isApproving, setIsApproving] = useState(false)
   const [showBiometric, setShowBiometric] = useState(false)
+
+  useEffect(() => {
+    const code = params.get("code")
+    if (!code) return
+    const load = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+        const data = await getPaymentRequestByCode(code)
+        setRequest(data)
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "Failed to load request"
+        setError(msg)
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
+  }, [params])
 
   const handleApprove = () => {
     setShowBiometric(true)
@@ -26,7 +48,20 @@ export default function ApprovePage() {
     }, 2000)
   }
 
-  if (!currentRequest) {
+  if (loading) {
+    return (
+      <AuthGuard>
+        <div className="min-h-screen bg-background">
+          <Navbar />
+          <div className="flex flex-col items-center justify-center p-8 text-center space-y-4">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          </div>
+        </div>
+      </AuthGuard>
+    )
+  }
+
+  if (error || !request) {
     return (
       <AuthGuard>
         <div className="min-h-screen bg-background">
@@ -36,6 +71,7 @@ export default function ApprovePage() {
               <ShieldCheck className="w-10 h-10 text-muted-foreground" />
             </div>
             <h2 className="text-2xl font-bold text-white">No Pending Requests</h2>
+            {error && <p className="text-sm text-red-400">{error}</p>}
             <Button onClick={() => router.push("/dashboard")}>Go to Dashboard</Button>
           </div>
         </div>
@@ -76,17 +112,17 @@ export default function ApprovePage() {
                   <p className="text-sm font-medium text-muted-foreground uppercase tracking-widest">
                     Amount Requested
                   </p>
-                  <p className="text-5xl font-black text-white">₹{currentRequest.amount.toLocaleString()}</p>
+                  <p className="text-5xl font-black text-white">₹{Number(request.amount).toLocaleString()}</p>
                 </div>
 
                 <div className="space-y-4">
                   <div className="flex items-center justify-between p-4 glass border-white/5 rounded-2xl">
                     <span className="text-sm text-muted-foreground">Transaction Code</span>
-                    <span className="font-mono font-bold text-primary tracking-widest">{currentRequest.code}</span>
+                    <span className="font-mono font-bold text-primary tracking-widest">{request.code}</span>
                   </div>
                   <div className="flex items-center justify-between p-4 glass border-white/5 rounded-2xl">
                     <span className="text-sm text-muted-foreground">Reference</span>
-                    <span className="text-sm text-white italic">"{currentRequest.note || "General Payment"}"</span>
+                    <span className="text-sm text-white italic">"{request.note || "General Payment"}"</span>
                   </div>
                 </div>
 
@@ -96,7 +132,6 @@ export default function ApprovePage() {
                       variant="outline"
                       className="h-16 rounded-2xl border-white/10 bg-white/5 hover:bg-destructive/10 hover:border-destructive/30 text-white font-bold transition-all flex items-center gap-2"
                       onClick={() => {
-                        setCurrentRequest(null)
                         router.push("/status?success=false")
                       }}
                     >

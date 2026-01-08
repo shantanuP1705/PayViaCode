@@ -10,12 +10,10 @@ import { Textarea } from "@/components/ui/textarea"
 import { ArrowLeft, Zap, ShieldCheck, Copy, CheckCircle2, Timer } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
-import { useAuthStore } from "@/lib/auth-store"
 import { createPaymentRequest } from "@/lib/payments-api"
 
-export default function BeginPayPage() {
+export default function CreatePaymentPage() {
   const router = useRouter()
-  const user = useAuthStore((s) => s.user)
   const [amount, setAmount] = useState("")
   const [note, setNote] = useState("")
   const [isGenerating, setIsGenerating] = useState(false)
@@ -42,7 +40,7 @@ export default function BeginPayPage() {
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) return
     setIsGenerating(true)
     try {
-      const resp = await createPaymentRequest(Number(amount), note, user?.email)
+      const resp = await createPaymentRequest(Number(amount), note)
       setCode(resp.code)
       setExpiresAt(resp.expiresAt)
     } catch (e) {
@@ -67,8 +65,6 @@ export default function BeginPayPage() {
     return `${mins}:${secs.toString().padStart(2, "0")}`
   }
 
-  // Remove this function - it's not needed
-
   return (
     <AuthGuard>
       <div className="min-h-screen bg-background text-foreground">
@@ -79,18 +75,12 @@ export default function BeginPayPage() {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => {
-                setCode(null)
-                setExpiresAt(null)
-                setAmount("")
-                setNote("")
-                router.back()
-              }}
+              onClick={() => router.back()}
               className="text-white"
             >
               <ArrowLeft className="w-6 h-6" />
             </Button>
-            <h1 className="text-3xl font-bold text-white tracking-tight">Generate Code</h1>
+            <h1 className="text-3xl font-bold text-white tracking-tight">Create Payment</h1>
           </div>
 
           {!code ? (
@@ -188,11 +178,6 @@ export default function BeginPayPage() {
 
                   <div className="flex justify-center items-center gap-6">
                     <div className="text-center">
-                      <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1">Amount</p>
-                      <p className="text-2xl font-bold text-white">₹{Number(amount).toLocaleString()}</p>
-                    </div>
-                    <div className="w-px h-10 bg-white/10" />
-                    <div className="text-center">
                       <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1">Expires In</p>
                       <div className="flex items-center gap-2 justify-center text-primary font-mono text-2xl font-bold">
                         <Timer className="w-5 h-5" />
@@ -211,12 +196,6 @@ export default function BeginPayPage() {
 
               <div className="flex flex-col gap-3">
                 <Button
-                  className="h-14 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-2xl font-bold"
-                  onClick={() => router.push(`/approve?code=${encodeURIComponent(code || "")}`)}
-                >
-                  Simulation: Simulate Receiver Request
-                </Button>
-                <Button
                   variant="ghost"
                   className="text-muted-foreground hover:text-white"
                   onClick={() => {
@@ -226,7 +205,7 @@ export default function BeginPayPage() {
                     setNote("")
                   }}
                 >
-                  Cancel and Go Back
+                  Create Another
                 </Button>
               </div>
             </div>

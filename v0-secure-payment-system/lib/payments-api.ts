@@ -52,3 +52,32 @@ export async function getPaymentRequestByCode(code: string) {
     throw new Error("Invalid JSON response")
   }
 }
+
+export type ConfirmCodeResponse = {
+  requestId: string
+  code: string
+  amount: number
+  note?: string
+  status: string
+  expiresAt: string
+  confirmedAt: string
+  payerEmail?: string
+  payerProfileId?: string
+}
+
+export async function confirmPaymentCode(code: string) {
+  const base = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8082"
+  const res = await fetch(`${base}/api/payments/code/confirm`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Accept": "application/json" },
+    body: JSON.stringify({ code }),
+  })
+  const text = await res.text()
+  if (!res.ok) throw new Error(text || `Request failed with status ${res.status}`)
+  try {
+    const json = JSON.parse(text) as ConfirmCodeResponse
+    return json
+  } catch {
+    throw new Error("Invalid JSON response")
+  }
+}

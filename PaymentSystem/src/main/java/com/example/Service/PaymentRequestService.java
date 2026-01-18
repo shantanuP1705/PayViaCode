@@ -88,4 +88,35 @@ public class PaymentRequestService {
             return pr;
         });
     }
+
+    /**
+     * Confirm a payment request by code: validates expiry and state, then locks by setting CODE_CONFIRMED.
+     * Returns the updated PaymentRequest or throws IllegalStateException/IllegalArgumentException for invalid states.
+     */
+    public PaymentRequest confirmCode(String rawCode) {
+        if (rawCode == null || rawCode.isBlank()) {
+            throw new IllegalArgumentException("Code is required");
+        }
+        String code = rawCode.trim().toUpperCase();
+        PaymentRequest pr = repository.findFirstByCode(code).orElseThrow(() -> new IllegalArgumentException("Code not found"));
+
+        Instant now = Instant.now();
+        if (pr.getExpiresAt() != null && now.isAfter(pr.getExpiresAt())) {
+            // Mark expired and reject
+            if (!"EXPIRED".equals(pr.getStatus())) {
+                pr.setStatus("EXPIRED");
+                repository.save(pr);
+            }
+            throw new IllegalStateException("Code expired");
+        }
+
+        if (!"CREATED".equals(pr.getStatus())) {
+            throw new IllegalStateException("Code not available");
+        }
+
+        // Lock the record to prevent reuse
+        pr.setStatus("CODE_CONFIRMED");
+        pr.setConfirmedAt(now);
+        return repository.save(pr);
+    }
 }

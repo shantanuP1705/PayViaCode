@@ -29,11 +29,14 @@ public class PaymentRequest {
     @Indexed(unique = true)
     private String code;
 
-    private String status; // e.g., CREATED, EXPIRED, COMPLETED
+    private String status; // e.g., CREATED, CODE_CONFIRMED, EXPIRED, COMPLETED
 
     private Instant createdAt;
 
     private Instant expiresAt;
+
+    // Timestamp when the receiver confirmed the code (locks the request from reuse)
+    private Instant confirmedAt;
 
     @Email
     private String payerEmail;

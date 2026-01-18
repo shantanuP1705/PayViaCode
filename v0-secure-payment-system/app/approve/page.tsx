@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { ShieldCheck, User, X, Check, Fingerprint, Lock } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useState } from "react"
-import { getPaymentRequestByCode, type PaymentRequestDetails } from "@/lib/payments-api"
+import { getPaymentRequestByCode, confirmPaymentCode, type PaymentRequestDetails } from "@/lib/payments-api"
 
 export default function ApprovePage() {
   const router = useRouter()
@@ -16,7 +16,9 @@ export default function ApprovePage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isApproving, setIsApproving] = useState(false)
-  const [showBiometric, setShowBiometric] = useState(false)
+  const [showMpin, setShowMpin] = useState(false)
+  const [mpin, setMpin] = useState("")
+  const [mpinError, setMpinError] = useState<string | null>(null)
 
   useEffect(() => {
     const code = params.get("code")
@@ -38,14 +40,30 @@ export default function ApprovePage() {
   }, [params])
 
   const handleApprove = () => {
-    setShowBiometric(true)
+    setShowMpin(true)
   }
 
-  const handleBiometricSuccess = () => {
-    setIsApproving(true)
-    setTimeout(() => {
-      router.push("/status?success=true")
-    }, 2000)
+  const submitMpin = async () => {
+    const code = params.get("code") || ""
+    const clean = mpin.replace(/\D/g, "")
+    if (clean.length < 4 || clean.length > 6) {
+      setMpinError("Enter a 4-6 digit MPIN")
+      return
+    }
+    try {
+      setIsApproving(true)
+      setMpinError(null)
+      const res = await confirmPaymentCode(code, clean)
+      if (res.status === "CODE_CONFIRMED") {
+        router.push("/status?success=true")
+      } else {
+        setMpinError("Unable to confirm. Try again.")
+      }
+    } catch (e) {
+      setMpinError("Invalid MPIN or code.")
+    } finally {
+      setIsApproving(false)
+    }
   }
 
   if (loading) {
@@ -126,7 +144,7 @@ export default function ApprovePage() {
                   </div>
                 </div>
 
-                {!showBiometric ? (
+                {!showMpin ? (
                   <div className="grid grid-cols-2 gap-4">
                     <Button
                       variant="outline"
@@ -149,30 +167,26 @@ export default function ApprovePage() {
                 ) : (
                   <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
                     <div className="flex flex-col items-center justify-center p-8 bg-white/5 rounded-3xl border border-white/10 space-y-4">
-                      <div
-                        className="w-20 h-20 bg-primary/20 rounded-full flex items-center justify-center group relative cursor-pointer"
-                        onClick={handleBiometricSuccess}
-                      >
-                        <Fingerprint
-                          className={`w-12 h-12 text-primary ${isApproving ? "animate-pulse" : "group-hover:scale-110 transition-transform"}`}
+                      <div className="w-full space-y-3">
+                        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Enter MPIN</label>
+                        <input
+                          type="password"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          maxLength={6}
+                          value={mpin}
+                          onChange={(e) => setMpin(e.target.value.replace(/\D/g, ""))}
+                          className="w-full h-14 text-center text-2xl font-black tracking-[0.3em] glass border-white/10 rounded-2xl bg-transparent text-white"
                         />
-                        {isApproving && (
-                          <div className="absolute inset-0 rounded-full border-4 border-primary border-t-transparent animate-spin" />
-                        )}
+                        {mpinError && <p className="text-destructive text-sm text-center">{mpinError}</p>}
                       </div>
-                      <div className="text-center">
-                        <p className="text-lg font-bold text-white">Verify Identity</p>
-                        <p className="text-sm text-muted-foreground">Touch the sensor to authorize payment</p>
-                      </div>
+                      <Button className="w-full h-12 rounded-2xl" onClick={submitMpin} disabled={isApproving}>
+                        {isApproving ? "Confirming..." : "Confirm Payment"}
+                      </Button>
+                      <Button variant="ghost" className="w-full text-muted-foreground" onClick={() => setShowMpin(false)} disabled={isApproving}>
+                        Cancel
+                      </Button>
                     </div>
-                    <Button
-                      variant="ghost"
-                      className="w-full text-muted-foreground"
-                      onClick={() => setShowBiometric(false)}
-                      disabled={isApproving}
-                    >
-                      Use PIN Instead
-                    </Button>
                   </div>
                 )}
               </div>

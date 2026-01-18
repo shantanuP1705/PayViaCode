@@ -44,3 +44,17 @@ export async function getProfileByEmail(email: string) {
     throw new Error("Invalid JSON response from profile API")
   }
 }
+
+export async function setProfileMpin(email: string, mpin: string) {
+  const base = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8082"
+  const cleanEmail = email.toLowerCase()
+  const res = await fetch(`${base}/api/profile/${encodeURIComponent(cleanEmail)}/mpin`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ mpin }),
+  })
+  if (res.status === 204) return true
+  const text = await res.text()
+  if (!res.ok) throw new Error(text || `Failed to set MPIN (${res.status})`)
+  return true
+}

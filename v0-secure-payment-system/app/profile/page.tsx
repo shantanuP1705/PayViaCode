@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { useAuthStore } from "@/lib/auth-store"
 import { useRouter } from "next/navigation"
-import { saveProfile } from "@/lib/profile-api"
+import { saveProfile, setProfileMpin } from "@/lib/profile-api"
 
 export default function ProfileCompletionPage() {
   const user = useAuthStore((s) => s.user)
@@ -23,6 +23,12 @@ export default function ProfileCompletionPage() {
   const [submitted, setSubmitted] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+
+  const [mpin, setMpin] = useState("")
+  const [mpinConfirm, setMpinConfirm] = useState("")
+  const [mpinError, setMpinError] = useState<string | null>(null)
+  const [mpinSubmitting, setMpinSubmitting] = useState(false)
+  const [mpinSuccess, setMpinSuccess] = useState<string | null>(null)
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -69,6 +75,37 @@ export default function ProfileCompletionPage() {
       setSubmitError(msg)
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const handleSetMpin = async () => {
+    setMpinError(null)
+    setMpinSuccess(null)
+    if (!user?.email) {
+      setMpinError("You must be logged in to set MPIN.")
+      return
+    }
+    const clean = mpin.replace(/\D/g, "")
+    const cleanConfirm = mpinConfirm.replace(/\D/g, "")
+    if (clean.length < 4 || clean.length > 6) {
+      setMpinError("MPIN must be 4-6 digits.")
+      return
+    }
+    if (clean !== cleanConfirm) {
+      setMpinError("MPIN and confirm do not match.")
+      return
+    }
+    try {
+      setMpinSubmitting(true)
+      await setProfileMpin(user.email, clean)
+      setMpinSuccess("MPIN updated successfully.")
+      setMpin("")
+      setMpinConfirm("")
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to set MPIN"
+      setMpinError(msg)
+    } finally {
+      setMpinSubmitting(false)
     }
   }
 
@@ -167,6 +204,52 @@ export default function ProfileCompletionPage() {
               </p>
             </div>
           )}
+
+          <div className="mt-10 pt-6 border-t border-white/10">
+            <h3 className="text-xl font-bold text-white mb-2">Set MPIN</h3>
+            <p className="text-muted-foreground mb-4">Configure a 4–6 digit MPIN to authorize payments during approval.</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label htmlFor="mpin">MPIN</Label>
+                <Input
+                  id="mpin"
+                  type="password"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={6}
+                  value={mpin}
+                  onChange={(e) => setMpin(e.target.value.replace(/\D/g, ""))}
+                  placeholder="••••"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="mpinConfirm">Confirm MPIN</Label>
+                <Input
+                  id="mpinConfirm"
+                  type="password"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={6}
+                  value={mpinConfirm}
+                  onChange={(e) => setMpinConfirm(e.target.value.replace(/\D/g, ""))}
+                  placeholder="••••"
+                />
+              </div>
+            </div>
+            {mpinError && (
+              <div className="mt-4 rounded-lg border border-red-500/40 bg-red-500/10 p-3">
+                <p className="text-sm text-red-400">{mpinError}</p>
+              </div>
+            )}
+            {mpinSuccess && (
+              <div className="mt-4 rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-3">
+                <p className="text-sm text-emerald-300">{mpinSuccess}</p>
+              </div>
+            )}
+            <div className="mt-4 flex items-center justify-end gap-3">
+              <Button onClick={handleSetMpin} disabled={mpinSubmitting}>{mpinSubmitting ? "Updating..." : "Update MPIN"}</Button>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>

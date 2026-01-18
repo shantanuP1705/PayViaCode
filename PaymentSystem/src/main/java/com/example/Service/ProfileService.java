@@ -33,4 +33,21 @@ public class ProfileService {
         if (email == null) return null;
         return repository.findFirstByEmail(email.toLowerCase()).orElse(null);
     }
+
+    public void setMpin(String email, String rawMpin) {
+        if (email == null || rawMpin == null) throw new IllegalArgumentException("Email and MPIN required");
+        String normalizedEmail = email.toLowerCase();
+        // MPIN must be 4-6 digits
+        if (!rawMpin.matches("^\\d{4,6}$")) {
+            throw new IllegalArgumentException("Invalid MPIN format");
+        }
+        ProfileDto profile = repository.findFirstByEmail(normalizedEmail)
+            .orElseThrow(() -> new IllegalStateException("Profile not found"));
+
+        org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder encoder = new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder();
+        String hash = encoder.encode(rawMpin);
+        profile.setMpinHash(hash);
+        profile.setMpinUpdatedAt(java.time.Instant.now());
+        repository.save(profile);
+    }
 }

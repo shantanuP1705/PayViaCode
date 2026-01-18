@@ -9,14 +9,14 @@ import { Label } from "@/components/ui/label"
 import { ArrowLeft, Key, Search, User, ShieldCheck, ArrowRight } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState, Suspense } from "react" // Added Suspense
-import { confirmPaymentCode, type ConfirmCodeResponse } from "@/lib/payments-api"
+import { getPaymentRequestByCode, type PaymentRequestDetails } from "@/lib/payments-api"
 
 function PayByCodeContent() {
   const router = useRouter()
   const [code, setCode] = useState("")
   const [isVerifying, setIsVerifying] = useState(false)
   const [error, setError] = useState("")
-  const [verifiedRequest, setVerifiedRequest] = useState<ConfirmCodeResponse | null>(null)
+  const [verifiedRequest, setVerifiedRequest] = useState<PaymentRequestDetails | null>(null)
 
   const handleVerify = async () => {
     const clean = code.replace(/[^A-Z0-9]/g, "").toUpperCase()
@@ -24,13 +24,15 @@ function PayByCodeContent() {
     setIsVerifying(true)
     setError("")
     try {
-      const confirmed = await confirmPaymentCode(clean)
-      // Server has locked the record and validated expiry/status
-      if (confirmed.status !== "CODE_CONFIRMED") {
-        setError("Invalid or expired payment code.")
+      const details = await getPaymentRequestByCode(clean)
+      if (details.status === "CODE_CONFIRMED") {
+        setVerifiedRequest(details)
+      } else if (details.status === "CREATED") {
+        setError("Waiting for payer approval. Ask them to approve with MPIN.")
         setVerifiedRequest(null)
       } else {
-        setVerifiedRequest(confirmed)
+        setError("Invalid or expired payment code.")
+        setVerifiedRequest(null)
       }
     } catch (e) {
       setError("Invalid or expired payment code.")
@@ -128,7 +130,7 @@ function PayByCodeContent() {
                   </div>
                   <div className="text-right">
                     <p className="text-xs text-muted-foreground uppercase tracking-widest">Note</p>
-                    <p className="text-sm font-medium text-white italic">"{verifiedRequest.note || "No note"}"</p>
+                      <p className="text-sm font-medium text-white italic">"{verifiedRequest.note || "No note"}"</p>
                   </div>
                 </div>
               </div>

@@ -39,4 +39,9 @@ public class ProfileDto {
     @Indexed(unique = true)
     private String email;
  
+    // Hashed MPIN for payer authentication (BCrypt). Optional until set by user.
+    private String mpinHash;
+
+    // When the MPIN was last updated
+    private java.time.Instant mpinUpdatedAt;
 }

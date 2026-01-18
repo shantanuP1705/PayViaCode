@@ -65,12 +65,12 @@ export type ConfirmCodeResponse = {
   payerProfileId?: string
 }
 
-export async function confirmPaymentCode(code: string) {
+export async function confirmPaymentCode(code: string, mpin: string) {
   const base = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8082"
   const res = await fetch(`${base}/api/payments/code/confirm`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "Accept": "application/json" },
-    body: JSON.stringify({ code }),
+    body: JSON.stringify({ code, mpin }),
   })
   const text = await res.text()
   if (!res.ok) throw new Error(text || `Request failed with status ${res.status}`)

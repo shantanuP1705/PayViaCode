@@ -119,4 +119,64 @@ public class PaymentRequestService {
         pr.setConfirmedAt(now);
         return repository.save(pr);
     }
+
+    /**
+     * Confirm a payment request by code with MPIN verification. The MPIN must match
+     * the payer's profile associated to this request (by profileId or payerEmail).
+     */
+    public PaymentRequest confirmCodeWithMpin(String rawCode, String rawMpin) {
+        if (rawMpin == null || rawMpin.isBlank()) {
+            throw new IllegalStateException("MPIN required");
+        }
+        if (!rawMpin.matches("^\\d{4,6}$")) {
+            throw new IllegalStateException("Invalid MPIN format");
+        }
+
+        PaymentRequest pr = confirmCodePrechecks(rawCode);
+
+        // Find payer profile
+        com.example.Entity.ProfileDto profile = null;
+        if (pr.getPayerProfileId() != null) {
+            profile = profileRepository.findById(pr.getPayerProfileId()).orElse(null);
+        }
+        if (profile == null && pr.getPayerEmail() != null) {
+            profile = profileRepository.findFirstByEmail(pr.getPayerEmail()).orElse(null);
+        }
+        if (profile == null || profile.getMpinHash() == null || profile.getMpinHash().isBlank()) {
+            throw new IllegalStateException("MPIN not set for payer");
+        }
+
+        org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder encoder = new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder();
+        boolean ok = encoder.matches(rawMpin, profile.getMpinHash());
+        if (!ok) {
+            throw new IllegalStateException("MPIN mismatch");
+        }
+
+        // Passed MPIN check — lock the record
+        Instant now = Instant.now();
+        pr.setStatus("CODE_CONFIRMED");
+        pr.setConfirmedAt(now);
+        return repository.save(pr);
+    }
+
+    private PaymentRequest confirmCodePrechecks(String rawCode) {
+        if (rawCode == null || rawCode.isBlank()) {
+            throw new IllegalArgumentException("Code is required");
+        }
+        String code = rawCode.trim().toUpperCase();
+        PaymentRequest pr = repository.findFirstByCode(code).orElseThrow(() -> new IllegalArgumentException("Code not found"));
+
+        Instant now = Instant.now();
+        if (pr.getExpiresAt() != null && now.isAfter(pr.getExpiresAt())) {
+            if (!"EXPIRED".equals(pr.getStatus())) {
+                pr.setStatus("EXPIRED");
+                repository.save(pr);
+            }
+            throw new IllegalStateException("Code expired");
+        }
+        if (!"CREATED".equals(pr.getStatus())) {
+            throw new IllegalStateException("Code not available");
+        }
+        return pr;
+    }
 }

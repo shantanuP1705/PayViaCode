@@ -31,11 +31,11 @@ public class CodeController {
      */
     @PostMapping("/confirm")
     public ResponseEntity<ConfirmResponse> confirm(@RequestBody ConfirmPayload payload) {
-        if (payload == null || payload.getCode() == null || payload.getCode().isBlank()) {
+        if (payload == null || payload.getCode() == null || payload.getCode().isBlank() || payload.getMpin() == null) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         }
         try {
-            PaymentRequest pr = service.confirmCode(payload.getCode());
+            PaymentRequest pr = service.confirmCodeWithMpin(payload.getCode(), payload.getMpin());
             ConfirmResponse resp = new ConfirmResponse();
             resp.setRequestId(pr.getId() != null ? pr.getId().toHexString() : null);
             resp.setCode(pr.getCode());
@@ -50,6 +50,10 @@ public class CodeController {
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         } catch (IllegalStateException e) {
+            String msg = e.getMessage() != null ? e.getMessage() : "";
+            if (msg.contains("MPIN")) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
             return ResponseEntity.status(HttpStatus.CONFLICT).build();
         }
     }
@@ -58,6 +62,8 @@ public class CodeController {
     public static class ConfirmPayload {
         @NotBlank
         private String code;
+        @NotBlank
+        private String mpin;
     }
 
     @Data

@@ -50,4 +50,25 @@ public class ProfileService {
         profile.setMpinUpdatedAt(java.time.Instant.now());
         repository.save(profile);
     }
+
+    public ProfileDto addMoney(String email, java.math.BigDecimal amount) {
+        if (email == null || amount == null) throw new IllegalArgumentException("Email and amount required");
+        if (amount.compareTo(java.math.BigDecimal.ZERO) <= 0) throw new IllegalArgumentException("Amount must be positive");
+        ProfileDto profile = repository.findFirstByEmail(email.toLowerCase()).orElseThrow(() -> new IllegalStateException("Profile not found"));
+        java.math.BigDecimal current = profile.getWalletBalance() != null ? profile.getWalletBalance() : java.math.BigDecimal.ZERO;
+        profile.setWalletBalance(current.add(amount));
+        return repository.save(profile);
+    }
+
+    public ProfileDto debitMoney(String email, java.math.BigDecimal amount) {
+        if (email == null || amount == null) throw new IllegalArgumentException("Email and amount required");
+        if (amount.compareTo(java.math.BigDecimal.ZERO) <= 0) throw new IllegalArgumentException("Amount must be positive");
+        ProfileDto profile = repository.findFirstByEmail(email.toLowerCase()).orElseThrow(() -> new IllegalStateException("Profile not found"));
+        java.math.BigDecimal current = profile.getWalletBalance() != null ? profile.getWalletBalance() : java.math.BigDecimal.ZERO;
+        if (current.compareTo(amount) < 0) {
+            throw new IllegalStateException("Insufficient balance");
+        }
+        profile.setWalletBalance(current.subtract(amount));
+        return repository.save(profile);
+    }
 }

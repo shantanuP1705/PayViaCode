@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation"
 import { useAuthStore } from "@/lib/auth-store"
 import { useEffect, useState } from "react"
 import { getProfileByEmail, type ProfilePayload } from "@/lib/profile-api"
+import { getWalletBalance } from "@/lib/wallet-api"
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -18,6 +19,9 @@ export default function DashboardPage() {
   const [profile, setProfile] = useState<ProfilePayload | null>(null)
   const [loadingProfile, setLoadingProfile] = useState(false)
   const [profileError, setProfileError] = useState<string | null>(null)
+  const [walletBalance, setWalletBalance] = useState<number | null>(null)
+  const [loadingWallet, setLoadingWallet] = useState(false)
+  const [walletError, setWalletError] = useState<string | null>(null)
 
   useEffect(() => {
     const load = async () => {
@@ -27,11 +31,17 @@ export default function DashboardPage() {
         setProfileError(null)
         const data = await getProfileByEmail(user.email)
         setProfile(data)
+        // fetch wallet balance
+        setLoadingWallet(true)
+        setWalletError(null)
+        const wb = await getWalletBalance(user.email)
+        setWalletBalance(wb.balance)
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Failed to load profile"
         setProfileError(msg)
       } finally {
         setLoadingProfile(false)
+        setLoadingWallet(false)
       }
     }
     load()
@@ -84,7 +94,13 @@ export default function DashboardPage() {
               <CardContent className="p-8 space-y-6 relative z-10">
                 <div className="space-y-1">
                   <p className="text-sm font-medium text-muted-foreground uppercase tracking-widest">Total Balance</p>
-                  <h2 className="text-5xl font-bold text-white tracking-tight">₹45,280.50</h2>
+                  {loadingWallet ? (
+                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                  ) : walletError ? (
+                    <p className="text-sm text-red-400">{walletError}</p>
+                  ) : (
+                    <h2 className="text-5xl font-bold text-white tracking-tight">₹{Number(walletBalance ?? 0).toLocaleString()}</h2>
+                  )}
                 </div>
 
                 <div className="flex flex-wrap gap-4">
@@ -110,7 +126,7 @@ export default function DashboardPage() {
 
           {/* Quick Actions */}
           <section className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <ActionCard icon={<Plus className="text-primary" />} label="Add Money" />
+            <ActionCard icon={<Plus className="text-primary" />} label="Add Money" onClick={() => router.push("/add-money")} />
             <ActionCard icon={<ArrowUpRight className="text-primary" />} label="Send" />
             <ActionCard icon={<ArrowDownLeft className="text-primary" />} label="Request" />
             <ActionCard

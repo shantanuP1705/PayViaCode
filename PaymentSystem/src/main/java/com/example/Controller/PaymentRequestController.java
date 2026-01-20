@@ -15,6 +15,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.example.Entity.PaymentRequest;
 import com.example.Service.PaymentRequestService;
+import com.example.Repository.ProfileRepository;
+import com.example.Entity.ProfileDto;
 
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Email;
@@ -26,9 +28,11 @@ import lombok.Data;
 public class PaymentRequestController {
 
     private final PaymentRequestService service;
+    private final ProfileRepository profileRepository;
 
-    public PaymentRequestController(PaymentRequestService service) {
+    public PaymentRequestController(PaymentRequestService service, ProfileRepository profileRepository) {
         this.service = service;
+        this.profileRepository = profileRepository;
     }
 
     @PostMapping
@@ -76,6 +80,20 @@ public class PaymentRequestController {
                 d.setExpiresAt(pr.getExpiresAt());
                 d.setPayerEmail(pr.getPayerEmail());
                 d.setPayerProfileId(pr.getPayerProfileId() != null ? pr.getPayerProfileId().toHexString() : null);
+                // Populate receiver profile details if available
+                ProfileDto recv = null;
+                if (pr.getReceiverProfileId() != null) {
+                    recv = profileRepository.findById(pr.getReceiverProfileId()).orElse(null);
+                }
+                if (recv == null && pr.getReceiverEmail() != null) {
+                    recv = profileRepository.findFirstByEmail(pr.getReceiverEmail()).orElse(null);
+                }
+                if (recv != null) {
+                    d.setReceiverAccountHolderName(recv.getAccountHolderName());
+                    d.setReceiverAccountNumber(recv.getAccountNumber());
+                }
+                d.setReceiverEmail(pr.getReceiverEmail());
+                d.setReceiverProfileId(pr.getReceiverProfileId() != null ? pr.getReceiverProfileId().toHexString() : null);
                 return ResponseEntity.ok(d);
             })
             .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).build());
@@ -109,5 +127,9 @@ public class PaymentRequestController {
         private Instant expiresAt;
         private String payerEmail;
         private String payerProfileId;
+        private String receiverEmail;
+        private String receiverProfileId;
+        private String receiverAccountHolderName;
+        private String receiverAccountNumber;
     }
 }

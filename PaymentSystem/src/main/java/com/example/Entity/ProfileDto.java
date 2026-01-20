@@ -44,4 +44,7 @@ public class ProfileDto {
 
     // When the MPIN was last updated
     private java.time.Instant mpinUpdatedAt;
+
+    // Wallet balance associated with this profile
+    private java.math.BigDecimal walletBalance;
 }

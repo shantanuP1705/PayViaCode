@@ -35,6 +35,10 @@ export type PaymentRequestDetails = {
   expiresAt: string
   payerEmail?: string
   payerProfileId?: string
+  receiverEmail?: string
+  receiverProfileId?: string
+  receiverAccountHolderName?: string
+  receiverAccountNumber?: string
 }
 
 export async function getPaymentRequestByCode(code: string) {
@@ -63,11 +67,50 @@ export type ConfirmCodeResponse = {
   confirmedAt: string
   payerEmail?: string
   payerProfileId?: string
+  receiverEmail?: string
+  receiverProfileId?: string
+  receiverConfirmedAt?: string
+  receiverAccountHolderName?: string
+  receiverAccountNumber?: string
 }
 
 export async function confirmPaymentCode(code: string, mpin: string) {
   const base = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8082"
   const res = await fetch(`${base}/api/payments/code/confirm`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Accept": "application/json" },
+    body: JSON.stringify({ code, mpin }),
+  })
+  const text = await res.text()
+  if (!res.ok) throw new Error(text || `Request failed with status ${res.status}`)
+  try {
+    const json = JSON.parse(text) as ConfirmCodeResponse
+    return json
+  } catch {
+    throw new Error("Invalid JSON response")
+  }
+}
+
+export async function confirmCodeByReceiver(code: string, receiverEmail?: string, receiverProfileId?: string) {
+  const base = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8082"
+  const res = await fetch(`${base}/api/payments/code/confirm`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Accept": "application/json" },
+    body: JSON.stringify({ code, receiverEmail, receiverProfileId }),
+  })
+  const text = await res.text()
+  if (!res.ok) throw new Error(text || `Request failed with status ${res.status}`)
+  try {
+    const json = JSON.parse(text) as ConfirmCodeResponse
+    return json
+  } catch {
+    throw new Error("Invalid JSON response")
+  }
+}
+
+export async function approveConfirmedCode(code: string, mpin: string) {
+  const base = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8082"
+  const res = await fetch(`${base}/api/payments/code/approve`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "Accept": "application/json" },
     body: JSON.stringify({ code, mpin }),

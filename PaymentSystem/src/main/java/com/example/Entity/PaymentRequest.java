@@ -43,4 +43,13 @@ public class PaymentRequest {
 
     // Reference to payer's profile id (Mongo ObjectId)
     private ObjectId payerProfileId;
+
+    // Receiver identity captured at confirmation
+    @Email
+    private String receiverEmail;
+
+    private ObjectId receiverProfileId;
+
+    // Timestamp when the receiver confirmed the code (awaiting payer approval)
+    private Instant receiverConfirmedAt;
 }

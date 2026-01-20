@@ -4,6 +4,7 @@ export type ProfilePayload = {
   bankName: string
   ifsc: string
   email: string
+  walletBalance?: number
 }
 
 export async function saveProfile(payload: ProfilePayload) {

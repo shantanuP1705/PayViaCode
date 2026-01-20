@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { ShieldCheck, User, X, Check, Fingerprint, Lock } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useState } from "react"
-import { getPaymentRequestByCode, confirmPaymentCode, type PaymentRequestDetails } from "@/lib/payments-api"
+import { getPaymentRequestByCode, approveConfirmedCode, type PaymentRequestDetails } from "@/lib/payments-api"
 
 export default function ApprovePage() {
   const router = useRouter()
@@ -53,7 +53,7 @@ export default function ApprovePage() {
     try {
       setIsApproving(true)
       setMpinError(null)
-      const res = await confirmPaymentCode(code, clean)
+      const res = await approveConfirmedCode(code, clean)
       if (res.status === "CODE_CONFIRMED") {
         router.push("/status?success=true")
       } else {
@@ -119,9 +119,9 @@ export default function ApprovePage() {
                 </div>
                 <div className="text-center">
                   <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-1">
-                    Request from Merchant
+                    Receiver Confirmed
                   </p>
-                  <h2 className="text-2xl font-bold text-white">Receiver Simulation</h2>
+                  <h2 className="text-2xl font-bold text-white">Approve Payment</h2>
                 </div>
               </div>
 
@@ -134,6 +134,28 @@ export default function ApprovePage() {
                 </div>
 
                 <div className="space-y-4">
+                  {request.payerEmail && (
+                    <div className="flex items-center justify-between p-4 glass border-white/5 rounded-2xl">
+                      <span className="text-sm text-muted-foreground">Payer</span>
+                      <span className="text-sm text-white">{request.payerEmail}</span>
+                    </div>
+                  )}
+                  {request.receiverEmail && (
+                    <div className="flex items-center justify-between p-4 glass border-white/5 rounded-2xl">
+                      <span className="text-sm text-muted-foreground">Receiver</span>
+                      <span className="text-sm text-white">{request.receiverEmail}</span>
+                    </div>
+                  )}
+                  {(request.receiverAccountHolderName || request.receiverAccountNumber) && (
+                    <div className="flex items-center justify-between p-4 glass border-white/5 rounded-2xl">
+                      <span className="text-sm text-muted-foreground">Receiver Account</span>
+                      <span className="text-sm text-white">
+                        {request.receiverAccountHolderName || ""}
+                        {request.receiverAccountHolderName && request.receiverAccountNumber ? " · " : ""}
+                        {request.receiverAccountNumber ? `A/C ${request.receiverAccountNumber}` : ""}
+                      </span>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between p-4 glass border-white/5 rounded-2xl">
                     <span className="text-sm text-muted-foreground">Transaction Code</span>
                     <span className="font-mono font-bold text-primary tracking-widest">{request.code}</span>

@@ -7,16 +7,19 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ArrowLeft, Key, Search, User, ShieldCheck, ArrowRight } from "lucide-react"
+import { useAuthStore } from "@/lib/auth-store"
 import { useRouter } from "next/navigation"
-import { useState, Suspense } from "react" // Added Suspense
-import { getPaymentRequestByCode, type PaymentRequestDetails } from "@/lib/payments-api"
+import { useState, Suspense, useEffect } from "react" // Added Suspense and useEffect
+import { getPaymentRequestByCode, confirmCodeByReceiver, type PaymentRequestDetails } from "@/lib/payments-api"
 
 function PayByCodeContent() {
   const router = useRouter()
+  const user = useAuthStore((s) => s.user)
   const [code, setCode] = useState("")
   const [isVerifying, setIsVerifying] = useState(false)
   const [error, setError] = useState("")
   const [verifiedRequest, setVerifiedRequest] = useState<PaymentRequestDetails | null>(null)
+  const [polling, setPolling] = useState(false)
 
   const handleVerify = async () => {
     const clean = code.replace(/[^A-Z0-9]/g, "").toUpperCase()
@@ -24,14 +27,23 @@ function PayByCodeContent() {
     setIsVerifying(true)
     setError("")
     try {
-      const details = await getPaymentRequestByCode(clean)
-      if (details.status === "CODE_CONFIRMED") {
-        setVerifiedRequest(details)
-      } else if (details.status === "CREATED") {
-        setError("Waiting for payer approval. Ask them to approve with MPIN.")
-        setVerifiedRequest(null)
+      // Receiver claims the code
+      const receiverEmail = user?.email || undefined
+      const confirmed = await confirmCodeByReceiver(clean, receiverEmail)
+      if (confirmed.status === "RECEIVER_CONFIRMED") {
+        setVerifiedRequest({
+          requestId: confirmed.requestId,
+          code: confirmed.code,
+          amount: confirmed.amount,
+          note: confirmed.note,
+          status: confirmed.status,
+          expiresAt: confirmed.expiresAt,
+          payerEmail: confirmed.payerEmail,
+          payerProfileId: confirmed.payerProfileId,
+        })
+        setPolling(true)
       } else {
-        setError("Invalid or expired payment code.")
+        setError("Unable to confirm code.")
         setVerifiedRequest(null)
       }
     } catch (e) {
@@ -41,6 +53,26 @@ function PayByCodeContent() {
       setIsVerifying(false)
     }
   }
+
+  // Poll for payer approval once receiver has confirmed
+  useEffect(() => {
+    if (!polling || !verifiedRequest) return
+    const code = verifiedRequest.code
+    const id = setInterval(async () => {
+      try {
+        const details = await getPaymentRequestByCode(code)
+        if (details.status === "CODE_CONFIRMED") {
+          clearInterval(id)
+          setPolling(false)
+          // Redirect to success
+          router.push("/status?success=true")
+        }
+      } catch {
+        // ignore transient errors
+      }
+    }, 2000)
+    return () => clearInterval(id)
+  }, [polling, verifiedRequest, router])
 
   return (
     <main className="mx-auto max-w-xl px-4 py-8 space-y-8">
@@ -103,8 +135,8 @@ function PayByCodeContent() {
                   <ShieldCheck className="w-12 h-12 text-success" />
                 </div>
                 <div>
-                  <h2 className="text-2xl font-bold text-white">Verification Successful</h2>
-                  <p className="text-muted-foreground">Authorized payment request found</p>
+                  <h2 className="text-2xl font-bold text-white">Code Confirmed</h2>
+                  <p className="text-muted-foreground">Waiting for payer to approve with MPIN</p>
                 </div>
               </div>
 
@@ -135,21 +167,13 @@ function PayByCodeContent() {
                 </div>
               </div>
 
-              <Button
-                className="w-full h-16 text-xl font-black bg-success hover:bg-success/90 text-white rounded-2xl flex items-center justify-center gap-3 transition-transform active:scale-95 shadow-xl shadow-success/20"
-                onClick={() => router.push("/status?success=true")}
-              >
-                Request Payment
-                <ArrowRight className="w-6 h-6" />
-              </Button>
+              <div className="text-center text-muted-foreground text-sm">
+                You’ll be redirected when payer approves.
+              </div>
             </CardContent>
           </Card>
 
-          <Button
-            variant="ghost"
-            className="w-full text-muted-foreground hover:text-white"
-            onClick={() => setVerifiedRequest(null)}
-          >
+          <Button variant="ghost" className="w-full text-muted-foreground hover:text-white" onClick={() => setVerifiedRequest(null)}>
             Cancel and Clear
           </Button>
         </div>

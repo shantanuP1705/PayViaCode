@@ -159,6 +159,100 @@ public class PaymentRequestService {
         return repository.save(pr);
     }
 
+    /**
+     * New flow: Receiver confirms the code first (no MPIN). Captures receiver identity
+     * and moves status from CREATED -> RECEIVER_CONFIRMED. Prevents multiple receivers
+     * from confirming the same code.
+     */
+    public PaymentRequest confirmCodeByReceiver(String rawCode, String receiverEmail, org.bson.types.ObjectId receiverProfileId) {
+        PaymentRequest pr = confirmCodePrechecks(rawCode);
+
+        // Only CREATED codes can be claimed by a receiver
+        // If already claimed by another receiver, block
+        if (!"CREATED".equals(pr.getStatus())) {
+            throw new IllegalStateException("Code not available");
+        }
+
+        if (receiverEmail != null) {
+            pr.setReceiverEmail(receiverEmail.trim().toLowerCase());
+        }
+        if (receiverProfileId != null) {
+            pr.setReceiverProfileId(receiverProfileId);
+        }
+        pr.setReceiverConfirmedAt(Instant.now());
+        pr.setStatus("RECEIVER_CONFIRMED");
+        return repository.save(pr);
+    }
+
+    /**
+     * Payer approves after receiver confirmation using MPIN, finalising the request.
+     * Allowed only when status is RECEIVER_CONFIRMED.
+     */
+    public PaymentRequest approveConfirmedCodeWithMpin(String rawCode, String rawMpin) {
+        if (rawMpin == null || rawMpin.isBlank()) {
+            throw new IllegalStateException("MPIN required");
+        }
+        if (!rawMpin.matches("^\\d{4,6}$")) {
+            throw new IllegalStateException("Invalid MPIN format");
+        }
+
+        if (rawCode == null || rawCode.isBlank()) {
+            throw new IllegalArgumentException("Code is required");
+        }
+        String code = rawCode.trim().toUpperCase();
+        PaymentRequest pr = repository.findFirstByCode(code).orElseThrow(() -> new IllegalArgumentException("Code not found"));
+
+        Instant now = Instant.now();
+        if (pr.getExpiresAt() != null && now.isAfter(pr.getExpiresAt())) {
+            if (!"EXPIRED".equals(pr.getStatus())) {
+                pr.setStatus("EXPIRED");
+                repository.save(pr);
+            }
+            throw new IllegalStateException("Code expired");
+        }
+        if (!"RECEIVER_CONFIRMED".equals(pr.getStatus())) {
+            throw new IllegalStateException("Awaiting receiver confirmation");
+        }
+
+        // MPIN check against payer profile
+        com.example.Entity.ProfileDto profile = null;
+        if (pr.getPayerProfileId() != null) {
+            profile = profileRepository.findById(pr.getPayerProfileId()).orElse(null);
+        }
+        if (profile == null && pr.getPayerEmail() != null) {
+            profile = profileRepository.findFirstByEmail(pr.getPayerEmail()).orElse(null);
+        }
+        if (profile == null || profile.getMpinHash() == null || profile.getMpinHash().isBlank()) {
+            throw new IllegalStateException("MPIN not set for payer");
+        }
+        org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder encoder = new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder();
+        if (!encoder.matches(rawMpin, profile.getMpinHash())) {
+            throw new IllegalStateException("MPIN mismatch");
+        }
+
+        // Finalise
+        pr.setStatus("CODE_CONFIRMED");
+        pr.setConfirmedAt(now);
+        PaymentRequest saved = repository.save(pr);
+
+        // Wallet transfers: debit payer, credit receiver
+        java.math.BigDecimal amt = saved.getAmount();
+        if (amt != null && amt.compareTo(java.math.BigDecimal.ZERO) > 0) {
+            // Debit payer
+            if (saved.getPayerEmail() != null) {
+                try {
+                    new ProfileService(profileRepository).debitMoney(saved.getPayerEmail(), amt);
+                } catch (Exception ignored) {}
+            }
+            // Credit receiver
+            if (saved.getReceiverEmail() != null) {
+                try {
+                    new ProfileService(profileRepository).addMoney(saved.getReceiverEmail(), amt);
+                } catch (Exception ignored) {}
+            }
+        }
+        return saved;
+    }
     private PaymentRequest confirmCodePrechecks(String rawCode) {
         if (rawCode == null || rawCode.isBlank()) {
             throw new IllegalArgumentException("Code is required");

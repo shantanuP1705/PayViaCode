@@ -10,9 +10,11 @@ import java.util.Optional;
 public class ProfileService {
 
     private final ProfileRepository repository;
+    private final WalletTransactionService txService;
 
-    public ProfileService(ProfileRepository repository) {
+    public ProfileService(ProfileRepository repository, WalletTransactionService txService) {
         this.repository = repository;
+        this.txService = txService;
     }
 
     public ProfileDto save(ProfileDto dto) {
@@ -57,7 +59,10 @@ public class ProfileService {
         ProfileDto profile = repository.findFirstByEmail(email.toLowerCase()).orElseThrow(() -> new IllegalStateException("Profile not found"));
         java.math.BigDecimal current = profile.getWalletBalance() != null ? profile.getWalletBalance() : java.math.BigDecimal.ZERO;
         profile.setWalletBalance(current.add(amount));
-        return repository.save(profile);
+        ProfileDto saved = repository.save(profile);
+        // default transaction record
+        txService.recordCredit(saved.getEmail(), amount, "ADJUSTMENT", "Wallet credit", null);
+        return saved;
     }
 
     public ProfileDto debitMoney(String email, java.math.BigDecimal amount) {
@@ -69,6 +74,22 @@ public class ProfileService {
             throw new IllegalStateException("Insufficient balance");
         }
         profile.setWalletBalance(current.subtract(amount));
-        return repository.save(profile);
+        ProfileDto saved = repository.save(profile);
+        // default transaction record
+        txService.recordDebit(saved.getEmail(), amount, "ADJUSTMENT", "Wallet debit", null);
+        return saved;
+    }
+
+    public ProfileDto addMoneyWithSource(String email, java.math.BigDecimal amount, String source, String description, String counterpartyEmail) {
+        ProfileDto saved = addMoney(email, amount);
+        // overwrite a more specific transaction record for clarity
+        txService.recordCredit(saved.getEmail(), amount, source, description, counterpartyEmail);
+        return saved;
+    }
+
+    public ProfileDto debitMoneyWithSource(String email, java.math.BigDecimal amount, String source, String description, String counterpartyEmail) {
+        ProfileDto saved = debitMoney(email, amount);
+        txService.recordDebit(saved.getEmail(), amount, source, description, counterpartyEmail);
+        return saved;
     }
 }

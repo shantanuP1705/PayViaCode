@@ -11,7 +11,7 @@ import { useRouter } from "next/navigation"
 import { useAuthStore } from "@/lib/auth-store"
 import { useEffect, useState } from "react"
 import { getProfileByEmail, type ProfilePayload } from "@/lib/profile-api"
-import { getWalletBalance } from "@/lib/wallet-api"
+import { getWalletBalance, getRecentTransactions, type TxResponse } from "@/lib/wallet-api"
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -47,11 +47,35 @@ export default function DashboardPage() {
     load()
   }, [user?.email])
 
-  const recentTransactions = [
-    { id: 1, name: "Amazon", amount: -1250, date: "Today, 2:30 PM", status: "Success" },
-    { id: 2, name: "Coffee Shop", amount: -250, date: "Today, 10:15 AM", status: "Success" },
-    { id: 3, name: "Received from Alex", amount: 5000, date: "Yesterday", status: "Success" },
-  ]
+  const [recentTransactions, setRecentTransactions] = useState<Array<{ id: string; name: string; amount: number; date: string; status: string }>>([])
+  const [loadingTx, setLoadingTx] = useState(false)
+  const [txError, setTxError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const loadTx = async () => {
+      if (!user?.email) return
+      try {
+        setLoadingTx(true)
+        setTxError(null)
+        const list = await getRecentTransactions(user.email, 5)
+        const mapped = list.map((tx: TxResponse) => {
+          const isDebit = tx.type === "DEBIT"
+          const isFailed = tx.status && tx.status.toLowerCase() === "failed"
+          const signAmount = isFailed ? 0 : isDebit ? -Math.abs(tx.amount) : Math.abs(tx.amount)
+          const name = tx.description || (isFailed ? "Payment Failed" : isDebit ? "Debited" : "Credited")
+          const date = new Date(tx.createdAt).toLocaleString()
+          return { id: `${tx.email}-${tx.createdAt}-${tx.source}`, name, amount: signAmount, date, status: tx.status }
+        })
+        setRecentTransactions(mapped)
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Failed to load transactions"
+        setTxError(msg)
+      } finally {
+        setLoadingTx(false)
+      }
+    }
+    loadTx()
+  }, [user?.email])
 
   return (
     <AuthGuard>
@@ -149,9 +173,17 @@ export default function DashboardPage() {
               </Button>
             </div>
             <div className="space-y-3">
-              {recentTransactions.map((tx) => (
-                <TransactionItem key={tx.id} {...tx} />
-              ))}
+              {loadingTx ? (
+                <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+              ) : txError ? (
+                <p className="text-sm text-red-400">{txError}</p>
+              ) : recentTransactions.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No recent transactions.</p>
+              ) : (
+                recentTransactions.map((tx) => (
+                  <TransactionItem key={tx.id} {...tx} />
+                ))
+              )}
             </div>
           </section>
         </main>

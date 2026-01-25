@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { CheckCircle2, XCircle, ArrowRight, Home, Download, Share2 } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
+import { getPaymentRequestByCode } from "@/lib/payments-api"
 import { useEffect, useState, Suspense } from "react"
 import { usePaymentStore } from "@/lib/payment-store"
 
@@ -13,6 +14,9 @@ function StatusContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const isSuccess = searchParams.get("success") === "true"
+  const codeParam = searchParams.get("code") || undefined
+  const amountParam = searchParams.get("amount") || undefined
+  const [displayAmount, setDisplayAmount] = useState<number | null>(null)
   const { currentRequest, setCurrentRequest } = usePaymentStore()
   const [showContent, setShowContent] = useState(false)
 
@@ -59,11 +63,11 @@ function StatusContent() {
             </p>
           </div>
 
-          {isSuccess && currentRequest && (
+          {isSuccess && (currentRequest || codeParam) && (
             <div className="glass border-white/5 p-6 rounded-3xl space-y-4 bg-white/5 animate-in slide-in-from-bottom-2 duration-700">
               <div className="flex justify-between items-center pb-4 border-b border-white/10">
                 <span className="text-sm text-muted-foreground uppercase tracking-widest font-bold">Amount</span>
-                <span className="text-2xl font-black text-white">₹{currentRequest.amount.toLocaleString()}</span>
+                <span className="text-2xl font-black text-white">₹{Number(displayAmount ?? currentRequest?.amount ?? 0).toLocaleString()}</span>
               </div>
               <div className="flex justify-between items-center pt-2">
                 <span className="text-xs text-muted-foreground">Transaction ID</span>
@@ -71,7 +75,7 @@ function StatusContent() {
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-xs text-muted-foreground">Auth Code</span>
-                <span className="text-xs font-mono text-primary font-bold">{currentRequest.code}</span>
+                <span className="text-xs font-mono text-primary font-bold">{codeParam || currentRequest?.code}</span>
               </div>
             </div>
           )}
@@ -80,6 +84,13 @@ function StatusContent() {
             <Button
               variant="outline"
               className="h-14 border-white/10 bg-white/5 text-white rounded-2xl hover:bg-white/10 flex items-center gap-2"
+              onClick={() => {
+                const code = codeParam || currentRequest?.code
+                if (!code) return
+                // Open invoice page to allow print
+                router.push(`/invoice/${encodeURIComponent(code)}`)
+              }}
+              disabled={!isSuccess || (!codeParam && !currentRequest?.code)}
             >
               <Download className="w-4 h-4" />
               Receipt
@@ -87,6 +98,24 @@ function StatusContent() {
             <Button
               variant="outline"
               className="h-14 border-white/10 bg-white/5 text-white rounded-2xl hover:bg-white/10 flex items-center gap-2"
+              onClick={async () => {
+                const code = codeParam || currentRequest?.code
+                if (!code) return
+                const url = `${typeof window !== "undefined" ? window.location.origin : ""}/invoice/${encodeURIComponent(code)}`
+                const title = `Payment Receipt ${code}`
+                const text = `View payment receipt ${code}`
+                try {
+                  if (navigator.share) {
+                    await navigator.share({ title, text, url })
+                  } else {
+                    await navigator.clipboard.writeText(url)
+                    alert("Invoice link copied to clipboard")
+                  }
+                } catch (e) {
+                  console.error(e)
+                }
+              }}
+              disabled={!isSuccess || (!codeParam && !currentRequest?.code)}
             >
               <Share2 className="w-4 h-4" />
               Share
@@ -103,6 +132,9 @@ function StatusContent() {
           </Button>
         </CardContent>
       </Card>
+      {isSuccess && (
+        <InitAmount code={codeParam} amount={amountParam} onSet={(n) => setDisplayAmount(n)} />
+      )}
     </div>
   )
 }
@@ -125,4 +157,23 @@ export default function StatusPage() {
       </div>
     </AuthGuard>
   )
+}
+// Initialize display amount based on query or fetch by code
+function InitAmount({ code, amount, onSet }: { code?: string; amount?: string; onSet: (n: number) => void }) {
+  useEffect(() => {
+    const a = amount ? Number(amount) : undefined
+    if (typeof a === "number" && !Number.isNaN(a)) {
+      onSet(a)
+      return
+    }
+    if (code) {
+      getPaymentRequestByCode(code)
+        .then((d) => {
+          const n = typeof d.amount === "number" ? d.amount : Number(d.amount)
+          if (!Number.isNaN(n)) onSet(n)
+        })
+        .catch(() => {})
+    }
+  }, [code, amount, onSet])
+  return null
 }

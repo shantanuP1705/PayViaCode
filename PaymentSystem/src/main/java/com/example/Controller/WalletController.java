@@ -47,7 +47,13 @@ public class WalletController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         }
         try {
-            ProfileDto profile = profileService.addMoney(payload.getEmail(), payload.getAmount());
+            ProfileDto profile = profileService.addMoneyWithSource(
+                payload.getEmail(),
+                payload.getAmount(),
+                "ADD_MONEY",
+                "Wallet top-up",
+                null
+            );
             BalanceResponse resp = new BalanceResponse();
             resp.setEmail(profile.getEmail());
             resp.setBalance(profile.getWalletBalance() != null ? profile.getWalletBalance() : BigDecimal.ZERO);
@@ -65,7 +71,13 @@ public class WalletController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         }
         try {
-            ProfileDto profile = profileService.debitMoney(payload.getEmail(), payload.getAmount());
+            ProfileDto profile = profileService.debitMoneyWithSource(
+                payload.getEmail(),
+                payload.getAmount(),
+                "MANUAL_DEBIT",
+                "Manual debit",
+                null
+            );
             BalanceResponse resp = new BalanceResponse();
             resp.setEmail(profile.getEmail());
             resp.setBalance(profile.getWalletBalance() != null ? profile.getWalletBalance() : BigDecimal.ZERO);

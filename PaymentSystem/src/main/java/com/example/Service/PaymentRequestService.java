@@ -20,13 +20,17 @@ public class PaymentRequestService {
     private final PaymentRequestRepository repository;
     private final SecureRandom random = new SecureRandom();
     private final ProfileRepository profileRepository;
+    private final ProfileService profileService;
+    private final WalletTransactionService txService;
 
     @Value("${payment.code.ttl-minutes:5}")
     private int ttlMinutes;
 
-    public PaymentRequestService(PaymentRequestRepository repository, ProfileRepository profileRepository) {
+    public PaymentRequestService(PaymentRequestRepository repository, ProfileRepository profileRepository, ProfileService profileService, WalletTransactionService txService) {
         this.repository = repository;
         this.profileRepository = profileRepository;
+        this.profileService = profileService;
+        this.txService = txService;
     }
 
     public PaymentRequest create(BigDecimal amount, String note, String payerEmail, ObjectId payerProfileId) {
@@ -81,9 +85,14 @@ public class PaymentRequestService {
 
     public java.util.Optional<PaymentRequest> findByCode(String code) {
         return repository.findFirstByCode(code).map(pr -> {
-            if (pr.getExpiresAt() != null && Instant.now().isAfter(pr.getExpiresAt()) && !"EXPIRED".equals(pr.getStatus())) {
-                pr.setStatus("EXPIRED");
-                repository.save(pr);
+            if (pr.getExpiresAt() != null && Instant.now().isAfter(pr.getExpiresAt())) {
+                if ("CREATED".equals(pr.getStatus())) {
+                    pr.setStatus("EXPIRED");
+                    repository.save(pr);
+                } else if ("RECEIVER_CONFIRMED".equals(pr.getStatus())) {
+                    pr.setStatus("FAILED");
+                    repository.save(pr);
+                }
             }
             return pr;
         });
@@ -230,28 +239,84 @@ public class PaymentRequestService {
             throw new IllegalStateException("MPIN mismatch");
         }
 
-        // Finalise
+        // Mark code confirmed (MPIN ok)
         pr.setStatus("CODE_CONFIRMED");
         pr.setConfirmedAt(now);
         PaymentRequest saved = repository.save(pr);
 
         // Wallet transfers: debit payer, credit receiver
         java.math.BigDecimal amt = saved.getAmount();
+        boolean success = false;
         if (amt != null && amt.compareTo(java.math.BigDecimal.ZERO) > 0) {
-            // Debit payer
-            if (saved.getPayerEmail() != null) {
+            try {
+                // Debit payer first
+                if (saved.getPayerEmail() != null) {
+                    profileService.debitMoneyWithSource(
+                        saved.getPayerEmail(),
+                        amt,
+                        "PAYMENT_SENT",
+                        "Paid to " + (saved.getReceiverEmail() != null ? saved.getReceiverEmail() : "receiver") + " - Code " + saved.getCode(),
+                        saved.getReceiverEmail()
+                    );
+                }
+                // Credit receiver
+                if (saved.getReceiverEmail() != null) {
+                    profileService.addMoneyWithSource(
+                        saved.getReceiverEmail(),
+                        amt,
+                        "PAYMENT_RECEIVED",
+                        "Received from " + (saved.getPayerEmail() != null ? saved.getPayerEmail() : "payer") + " - Code " + saved.getCode(),
+                        saved.getPayerEmail()
+                    );
+                }
+                success = true;
+            } catch (Exception e) {
+                // Attempt compensation if payer was debited but receiver credit failed
                 try {
-                    new ProfileService(profileRepository).debitMoney(saved.getPayerEmail(), amt);
-                } catch (Exception ignored) {}
-            }
-            // Credit receiver
-            if (saved.getReceiverEmail() != null) {
+                    if (saved.getPayerEmail() != null) {
+                        profileService.addMoneyWithSource(
+                            saved.getPayerEmail(),
+                            amt,
+                            "REVERSAL",
+                            "Reversal for failed payment - Code " + saved.getCode(),
+                            saved.getReceiverEmail()
+                        );
+                    }
+                } catch (Exception ignore) {}
+                // Record failure event for recent activity
                 try {
-                    new ProfileService(profileRepository).addMoney(saved.getReceiverEmail(), amt);
-                } catch (Exception ignored) {}
+                    if (saved.getPayerEmail() != null) {
+                        txService.recordEvent(
+                            saved.getPayerEmail(),
+                            amt,
+                            "PAYMENT_FAILED",
+                            "Payment failed - Code " + saved.getCode(),
+                            saved.getReceiverEmail(),
+                            "Failed"
+                        );
+                    }
+                    if (saved.getReceiverEmail() != null) {
+                        txService.recordEvent(
+                            saved.getReceiverEmail(),
+                            amt,
+                            "PAYMENT_FAILED",
+                            "Payment failed - Code " + saved.getCode(),
+                            saved.getPayerEmail(),
+                            "Failed"
+                        );
+                    }
+                } catch (Exception ignore) {}
+                success = false;
             }
         }
-        return saved;
+
+        // Update final status based on transfer result
+        if (success) {
+            saved.setStatus("COMPLETED");
+        } else {
+            saved.setStatus("FAILED");
+        }
+        return repository.save(saved);
     }
     private PaymentRequest confirmCodePrechecks(String rawCode) {
         if (rawCode == null || rawCode.isBlank()) {

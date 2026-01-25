@@ -54,10 +54,11 @@ export default function ApprovePage() {
       setIsApproving(true)
       setMpinError(null)
       const res = await approveConfirmedCode(code, clean)
-      if (res.status === "CODE_CONFIRMED") {
-        router.push("/status?success=true")
+      if (res.status === "COMPLETED") {
+        const amt = typeof res.amount === "number" ? res.amount : Number(res.amount)
+        router.push(`/status?success=true&code=${encodeURIComponent(code)}&amount=${encodeURIComponent(String(amt))}`)
       } else {
-        setMpinError("Unable to confirm. Try again.")
+        setMpinError(res.status === "FAILED" ? "Payment failed. Try again." : "Unable to confirm. Try again.")
       }
     } catch (e) {
       setMpinError("Invalid MPIN or code.")

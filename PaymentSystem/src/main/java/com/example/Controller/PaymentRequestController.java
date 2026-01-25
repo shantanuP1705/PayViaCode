@@ -77,6 +77,8 @@ public class PaymentRequestController {
                 d.setAmount(pr.getAmount());
                 d.setNote(pr.getNote());
                 d.setStatus(pr.getStatus());
+                d.setCreatedAt(pr.getCreatedAt());
+                d.setConfirmedAt(pr.getConfirmedAt());
                 d.setExpiresAt(pr.getExpiresAt());
                 d.setPayerEmail(pr.getPayerEmail());
                 d.setPayerProfileId(pr.getPayerProfileId() != null ? pr.getPayerProfileId().toHexString() : null);
@@ -94,6 +96,7 @@ public class PaymentRequestController {
                 }
                 d.setReceiverEmail(pr.getReceiverEmail());
                 d.setReceiverProfileId(pr.getReceiverProfileId() != null ? pr.getReceiverProfileId().toHexString() : null);
+                d.setReceiverConfirmedAt(pr.getReceiverConfirmedAt());
                 return ResponseEntity.ok(d);
             })
             .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).build());
@@ -124,6 +127,8 @@ public class PaymentRequestController {
         private java.math.BigDecimal amount;
         private String note;
         private String status;
+        private Instant createdAt;
+        private Instant confirmedAt;
         private Instant expiresAt;
         private String payerEmail;
         private String payerProfileId;
@@ -131,5 +136,6 @@ public class PaymentRequestController {
         private String receiverProfileId;
         private String receiverAccountHolderName;
         private String receiverAccountNumber;
+        private Instant receiverConfirmedAt;
     }
 }

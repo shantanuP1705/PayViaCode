@@ -61,11 +61,16 @@ function PayByCodeContent() {
     const id = setInterval(async () => {
       try {
         const details = await getPaymentRequestByCode(code)
-        if (details.status === "CODE_CONFIRMED") {
+        if (details.status === "COMPLETED") {
           clearInterval(id)
           setPolling(false)
-          // Redirect to success
-          router.push("/status?success=true")
+          // Redirect to success with code and amount for receipt/share
+          const amt = typeof details.amount === "number" ? details.amount : Number(details.amount)
+          router.push(`/status?success=true&code=${encodeURIComponent(code)}&amount=${encodeURIComponent(String(amt))}`)
+        } else if (details.status === "FAILED") {
+          clearInterval(id)
+          setPolling(false)
+          router.push("/status?success=false")
         }
       } catch {
         // ignore transient errors

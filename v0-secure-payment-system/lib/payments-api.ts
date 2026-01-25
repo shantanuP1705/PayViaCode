@@ -32,6 +32,8 @@ export type PaymentRequestDetails = {
   amount: number
   note?: string
   status: string
+  createdAt?: string
+  confirmedAt?: string
   expiresAt: string
   payerEmail?: string
   payerProfileId?: string
@@ -39,6 +41,7 @@ export type PaymentRequestDetails = {
   receiverProfileId?: string
   receiverAccountHolderName?: string
   receiverAccountNumber?: string
+  receiverConfirmedAt?: string
 }
 
 export async function getPaymentRequestByCode(code: string) {

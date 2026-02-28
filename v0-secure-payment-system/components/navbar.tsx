@@ -2,7 +2,7 @@
 
 import { useAuthStore } from "@/lib/auth-store"
 import { Button } from "@/components/ui/button"
-import { ShieldCheck, LogOut, User, Bell } from "lucide-react"
+import { ShieldCheck, LogOut, User, Bell, FileText } from "lucide-react"
 import { useRouter } from "next/navigation"
 
 export function Navbar() {
@@ -27,6 +27,16 @@ export function Navbar() {
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-white">
             <Bell className="w-5 h-5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground hover:text-white hidden sm:inline-flex"
+            onClick={() => router.push("/statements")}
+            title="Statements"
+          >
+            <FileText className="w-4 h-4 mr-2" />
+            Statements
           </Button>
           <div
             className="flex items-center gap-3 bg-white/5 px-3 py-1.5 rounded-full border border-white/10 cursor-pointer hover:bg-white/10"

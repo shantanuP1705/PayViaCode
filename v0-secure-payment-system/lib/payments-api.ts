@@ -5,7 +5,7 @@ export type CreatePaymentResponse = {
 }
 
 export async function createPaymentRequest(amount: number, note?: string, payerEmail?: string, payerProfileId?: string) {
-  const base = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8082"
+  const base = process.env.NEXT_PUBLIC_API_BASE_URL || "http://13.126.234.116"
   const res = await fetch(`${base}/api/payments/requests`, {
     method: "POST",
     headers: {
@@ -45,7 +45,7 @@ export type PaymentRequestDetails = {
 }
 
 export async function getPaymentRequestByCode(code: string) {
-  const base = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8082"
+  const base = process.env.NEXT_PUBLIC_API_BASE_URL || "http://13.126.234.116"
   const res = await fetch(`${base}/api/payments/requests/${encodeURIComponent(code)}`, {
     method: "GET",
     headers: { "Accept": "application/json" },
@@ -78,7 +78,7 @@ export type ConfirmCodeResponse = {
 }
 
 export async function confirmPaymentCode(code: string, mpin: string) {
-  const base = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8082"
+  const base = process.env.NEXT_PUBLIC_API_BASE_URL || "http://13.126.234.116"
   const res = await fetch(`${base}/api/payments/code/confirm`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "Accept": "application/json" },
@@ -95,7 +95,7 @@ export async function confirmPaymentCode(code: string, mpin: string) {
 }
 
 export async function confirmCodeByReceiver(code: string, receiverEmail?: string, receiverProfileId?: string) {
-  const base = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8082"
+  const base = process.env.NEXT_PUBLIC_API_BASE_URL || "http://13.126.234.116"
   const res = await fetch(`${base}/api/payments/code/confirm`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "Accept": "application/json" },
@@ -112,7 +112,7 @@ export async function confirmCodeByReceiver(code: string, receiverEmail?: string
 }
 
 export async function approveConfirmedCode(code: string, mpin: string) {
-  const base = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8082"
+  const base = process.env.NEXT_PUBLIC_API_BASE_URL || "http://13.126.234.116"
   const res = await fetch(`${base}/api/payments/code/approve`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "Accept": "application/json" },

@@ -4,7 +4,7 @@ export type BalanceResponse = {
 }
 
 export async function getWalletBalance(email: string) {
-  const base = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8082"
+  const base = process.env.NEXT_PUBLIC_API_BASE_URL || "http://13.126.234.116"
   const res = await fetch(`${base}/api/wallet/${encodeURIComponent(email.toLowerCase())}`)
   const text = await res.text()
   if (!res.ok) throw new Error(text || `Failed to fetch balance (${res.status})`)
@@ -12,7 +12,7 @@ export async function getWalletBalance(email: string) {
 }
 
 export async function addMoney(email: string, amount: number) {
-  const base = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8082"
+  const base = process.env.NEXT_PUBLIC_API_BASE_URL || "http://13.126.234.116"
   const res = await fetch(`${base}/api/wallet/add`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -35,7 +35,7 @@ export type TxResponse = {
 }
 
 export async function getRecentTransactions(email: string, limit = 10) {
-  const base = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8082"
+  const base = process.env.NEXT_PUBLIC_API_BASE_URL || "http://13.126.234.116"
   const res = await fetch(`${base}/api/wallet/transactions/${encodeURIComponent(email.toLowerCase())}?limit=${limit}`)
   const text = await res.text()
   if (!res.ok) throw new Error(text || `Failed to fetch transactions (${res.status})`)
@@ -54,7 +54,7 @@ export type TxFilters = {
 }
 
 export async function getTransactions(email: string, filters: TxFilters = {}) {
-  const base = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8082"
+  const base = process.env.NEXT_PUBLIC_API_BASE_URL || "http://13.126.234.116"
   const params = new URLSearchParams()
   if (filters.type) params.set("type", filters.type)
   if (filters.status) params.set("status", filters.status)

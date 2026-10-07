@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { useRouter, useSearchParams } from "next/navigation"
-import { useState } from "react"
+import { Suspense, useState } from "react"
 
 export default function SupportPage() {
   return (
@@ -15,7 +15,9 @@ export default function SupportPage() {
       <div className="min-h-screen bg-background text-foreground">
         <Navbar />
         <main className="mx-auto max-w-3xl px-4 py-8">
-          <SupportContent />
+          <Suspense fallback={<div className="min-h-96" />}>
+            <SupportContent />
+          </Suspense>
         </main>
       </div>
     </AuthGuard>

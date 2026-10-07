@@ -8,7 +8,7 @@ export type ProfilePayload = {
 }
 
 export async function saveProfile(payload: ProfilePayload) {
-  const base = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8082"
+  const base = process.env.NEXT_PUBLIC_API_BASE_URL || "http://13.126.234.116"
   const res = await fetch(`${base}/api/profile`, {
     method: "POST",
     headers: {
@@ -29,7 +29,7 @@ export async function saveProfile(payload: ProfilePayload) {
 }
 
 export async function getProfileByEmail(email: string) {
-  const base = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8082"
+  const base = process.env.NEXT_PUBLIC_API_BASE_URL || "http://13.126.234.116"
   const res = await fetch(`${base}/api/profile/${encodeURIComponent(email.toLowerCase())}`, {
     method: "GET",
     headers: {
@@ -47,7 +47,7 @@ export async function getProfileByEmail(email: string) {
 }
 
 export async function setProfileMpin(email: string, mpin: string) {
-  const base = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8082"
+  const base = process.env.NEXT_PUBLIC_API_BASE_URL || "http://13.126.234.116"
   const cleanEmail = email.toLowerCase()
   const res = await fetch(`${base}/api/profile/${encodeURIComponent(cleanEmail)}/mpin`, {
     method: "POST",

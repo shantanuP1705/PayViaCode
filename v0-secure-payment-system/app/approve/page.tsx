@@ -6,10 +6,11 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { ShieldCheck, User, X, Check, Fingerprint, Lock } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
+import { Suspense } from "react"
 import { useEffect, useState } from "react"
 import { getPaymentRequestByCode, approveConfirmedCode, type PaymentRequestDetails } from "@/lib/payments-api"
 
-export default function ApprovePage() {
+function ApproveContent() {
   const router = useRouter()
   const params = useSearchParams()
   const [request, setRequest] = useState<PaymentRequestDetails | null>(null)
@@ -223,5 +224,13 @@ export default function ApprovePage() {
         </main>
       </div>
     </AuthGuard>
+  )
+}
+
+export default function ApprovePage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-background" />}>
+      <ApproveContent />
+    </Suspense>
   )
 }
